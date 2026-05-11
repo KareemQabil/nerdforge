@@ -1,0 +1,19 @@
+{
+  "name": "flobby-bird-game",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests defined\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.9",
+    "typescript": "^6.0.3"
+  },
+  "type": "module"
+}
