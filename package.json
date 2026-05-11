@@ -1,0 +1,38 @@
+{
+  "name": "nerdforge",
+  "version": "0.1.0",
+  "description": "Deterministic CLI orchestration tool for multi-agent software factory via DigitalOcean Inference Router",
+  "type": "module",
+  "bin": {
+    "nerdforge": "./dist/cli/index.js"
+  },
+  "main": "./dist/cli/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "dotenv": "^17.4.2",
+    "execa": "^9.5.2",
+    "glob": "^11.0.2",
+    "simple-git": "^3.27.0",
+    "yaml": "^2.7.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "msw": "^2.8.4",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}
