@@ -9,10 +9,10 @@ import { z } from 'zod';
  * 3. Try extracting first { ... } or [ ... ] from the text
  * 4. Fail with structured error
  */
-export function validateResponse<T>(
-  schema: z.ZodType<T>,
+export function validateResponse<TSchema extends z.ZodTypeAny>(
+  schema: TSchema,
   raw: string,
-): { success: true; data: T } | { success: false; error: string; raw: string } {
+): { success: true; data: z.output<TSchema> } | { success: false; error: string; raw: string } {
   const jsonString = extractJson(raw);
 
   if (!jsonString) {

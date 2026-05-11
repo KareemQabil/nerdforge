@@ -4,6 +4,7 @@ import type { NerdforgeConfig } from '../types/config.js';
 import type { Microtask } from '../types/schemas.js';
 import { ROUTER_TASKS } from '../types/constants.js';
 import { PatchSchema, HygieneSchema, GatekeeperSchema } from '../types/schemas.js';
+import type { GatekeeperVerdict } from '../types/schemas.js';
 import { RouterClient } from '../router/client.js';
 import { SessionManager } from '../storage/session-manager.js';
 import { GitOperations } from '../git/operations.js';
@@ -28,19 +29,31 @@ export interface WorkLoopResult {
   commitHash?: string;
   proofPath?: string;
   error?: string;
+  gatekeeperVerdict?: GatekeeperVerdict;
 }
 
-/**
- * Execute the full TDD work loop for a single microtask.
- * This is the core pipeline: test → patch → verify → audit → commit.
- */
+function toGatekeeperVerdict(data: {
+  verdict: 'PASS' | 'FAIL';
+  reasons?: string[];
+  required_changes?: string[];
+  evidence_checklist?: string[];
+  commit_message?: string;
+}): GatekeeperVerdict {
+  return {
+    verdict: data.verdict,
+    reasons: data.reasons ?? [],
+    required_changes: data.required_changes ?? [],
+    evidence_checklist: data.evidence_checklist ?? [],
+    commit_message: data.commit_message,
+  };
+}
+
 export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopResult> {
   const { cwd, config, client, sessions, sessionId, microtask, dryRun } = opts;
   const maxAttempts = config.workflow.max_worker_attempts;
   const git = new GitOperations(cwd);
   const artifactPaths: Record<string, string> = {};
 
-  // 1. Clean worktree check
   if (config.workflow.require_clean_worktree) {
     const clean = await git.isCleanWorktree();
     if (!clean) {
@@ -48,7 +61,6 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
     }
   }
 
-  // 2. Create/checkout branch
   const branchName = `${config.workflow.branch_prefix}${microtask.id}`;
   if (await git.branchExists(branchName)) {
     await git.checkoutBranch(branchName);
@@ -56,33 +68,36 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
     await git.createBranch(branchName);
   }
 
-  // 3. Run tests to capture failing state
-  console.log('  ⏳ Running tests to capture failing state...');
+  console.log('  Running tests to capture failing state...');
   const failingResult = await runTests(config.workflow.test_command, cwd);
   const failingLog = [failingResult.stdout, failingResult.stderr].join('\n').trim();
 
   artifactPaths['test-failing.log'] = sessions.saveRunArtifact(
-    sessionId, microtask.id, 0, 'test-failing.log', failingLog,
+    sessionId,
+    microtask.id,
+    0,
+    'test-failing.log',
+    failingLog,
   );
 
-  // 4. Worker loop: request patch → apply → test
   let lastDiff = '';
   let lastPassingLog = '';
   let lastTestResult = failingResult;
+  let finalAttempt = 0;
+  let patchAppliedSuccessfully = false;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`  ⏳ Attempt ${attempt}/${maxAttempts}: requesting implementation...`);
+    finalAttempt = attempt;
+    console.log(`  Attempt ${attempt}/${maxAttempts}: requesting implementation...`);
 
-    // Build context for the worker — include ONLY relevant snippets
     const relevantFiles = microtask.expected_files
-      .filter((f) => fs.existsSync(path.join(cwd, f)))
-      .map((f) => {
-        const content = fs.readFileSync(path.join(cwd, f), 'utf-8');
-        // Truncate large files to prevent context overflow
+      .filter((file) => fs.existsSync(path.join(cwd, file)))
+      .map((file) => {
+        const content = fs.readFileSync(path.join(cwd, file), 'utf-8');
         const truncated = content.length > 4000
-          ? content.slice(0, 4000) + '\n... (truncated)'
+          ? `${content.slice(0, 4000)}\n... (truncated)`
           : content;
-        return `--- ${f} ---\n${truncated}`;
+        return `--- ${file} ---\n${truncated}`;
       })
       .join('\n\n');
 
@@ -94,15 +109,16 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
       `MICROTASK: ${microtask.title}`,
       microtask.description ? `DESCRIPTION: ${microtask.description}` : '',
       '',
-      `FAILING TEST OUTPUT:`,
+      'FAILING TEST OUTPUT:',
       failingLog.slice(0, 2000),
       '',
-      `RELEVANT FILES:`,
+      'RELEVANT FILES:',
       relevantFiles,
       retryContext,
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
 
-    // Call worker
     const patchResult = await client.invokeTask(
       ROUTER_TASKS.UNIT_TEST_IMPLEMENTATION,
       workerContent,
@@ -117,43 +133,56 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
     sessions.saveRunArtifact(sessionId, microtask.id, attempt, 'patch.diff', lastDiff);
 
     if (dryRun) {
-      console.log('  🔍 Dry run — patch not applied');
+      console.log('  Dry run - patch not applied');
       console.log(lastDiff);
       return { success: true };
     }
 
-    // Apply patch
-    console.log('  ⏳ Applying patch...');
+    console.log('  Applying patch...');
     const applyResult = await applyPatch(lastDiff, cwd);
     if (!applyResult.success) {
-      console.error(`  ✗ Patch apply failed: ${applyResult.error}`);
-      sessions.saveRunArtifact(sessionId, microtask.id, attempt, 'apply-error.log', applyResult.error ?? '');
+      console.error(`  Patch apply failed: ${applyResult.error}`);
+      sessions.saveRunArtifact(
+        sessionId,
+        microtask.id,
+        attempt,
+        'apply-error.log',
+        applyResult.error ?? '',
+      );
       continue;
     }
+    
+    patchAppliedSuccessfully = true;
 
-    // Run tests
-    console.log('  ⏳ Running tests...');
+    console.log('  Running tests...');
     lastTestResult = await runTests(config.workflow.test_command, cwd);
     lastPassingLog = [lastTestResult.stdout, lastTestResult.stderr].join('\n').trim();
 
     artifactPaths[`test-attempt-${attempt}.log`] = sessions.saveRunArtifact(
-      sessionId, microtask.id, attempt, 'test.log', lastPassingLog,
+      sessionId,
+      microtask.id,
+      attempt,
+      'test.log',
+      lastPassingLog,
     );
 
     if (lastTestResult.passed) {
-      console.log('  ✓ Tests pass!');
+      console.log('  Tests pass.');
       break;
     }
 
-    console.log(`  ✗ Tests still failing (attempt ${attempt}/${maxAttempts})`);
+    console.log(`  Tests still failing (attempt ${attempt}/${maxAttempts})`);
+  }
+
+  if (!patchAppliedSuccessfully) {
+    return { success: false, error: `Patch failed to apply after ${maxAttempts} attempts` };
   }
 
   if (!lastTestResult.passed) {
     return { success: false, error: `Tests still failing after ${maxAttempts} attempts` };
   }
 
-  // 5. Hygiene audit
-  console.log('  ⏳ Running hygiene audit...');
+  console.log('  Running hygiene audit...');
   const hygieneResult = await client.invokeTask(
     ROUTER_TASKS.HYGIENE_AUDIT,
     `DIFF:\n${lastDiff}\n\nFILES CHANGED: ${microtask.expected_files.join(', ')}`,
@@ -161,12 +190,15 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
     { schemaId: 'nerdforge.hygiene.v1' },
   );
 
-  artifactPaths['hygiene.json'] = sessions.saveRunArtifact(
-    sessionId, microtask.id, maxAttempts, 'hygiene.json', hygieneResult.data,
+  artifactPaths.hygiene = sessions.saveRunArtifact(
+    sessionId,
+    microtask.id,
+    finalAttempt,
+    'hygiene.json',
+    hygieneResult.data,
   );
 
-  // 6. Gatekeeper
-  console.log('  ⏳ Running gatekeeper...');
+  console.log('  Running gatekeeper...');
   const gatekeeperContent = [
     `MICROTASK: ${JSON.stringify(microtask)}`,
     `DIFF:\n${lastDiff}`,
@@ -180,21 +212,30 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
     GatekeeperSchema,
     { schemaId: 'nerdforge.gatekeeper.v1' },
   );
+  const gatekeeperVerdict = toGatekeeperVerdict(gatekeeperResult.data);
 
-  artifactPaths['gatekeeper.json'] = sessions.saveRunArtifact(
-    sessionId, microtask.id, maxAttempts, 'gatekeeper.json', gatekeeperResult.data,
+  artifactPaths.gatekeeper = sessions.saveRunArtifact(
+    sessionId,
+    microtask.id,
+    finalAttempt,
+    'gatekeeper.json',
+    gatekeeperVerdict,
   );
 
-  if (gatekeeperResult.data.verdict !== 'PASS') {
-    console.error('  ✗ Gatekeeper FAILED');
-    for (const reason of gatekeeperResult.data.reasons) {
+  if (gatekeeperVerdict.verdict !== 'PASS') {
+    console.error('  Gatekeeper failed');
+    for (const reason of gatekeeperVerdict.reasons) {
       console.error(`    - ${reason}`);
     }
-    return { success: false, error: 'Gatekeeper rejected changes' };
+    return {
+      success: false,
+      error: 'Gatekeeper rejected changes',
+      gatekeeperVerdict,
+    };
   }
 
   let userAction: 'commit' | 'amend' | 'retry' | 'abort' = 'commit';
-  const commitMessage = gatekeeperResult.data.commit_message || `feat(${microtask.id}): ${microtask.title}`;
+  const commitMessage = gatekeeperVerdict.commit_message || `feat(${microtask.id}): ${microtask.title}`;
 
   if (opts.onGatekeeperApproved) {
     userAction = await opts.onGatekeeperApproved(lastDiff, commitMessage);
@@ -203,47 +244,45 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
   if (userAction === 'abort') {
     return { success: false, error: 'User aborted commit.' };
   }
-  
+
   if (userAction === 'retry') {
-    // Advanced: Would require wrapping the entire loop to retry. 
-    // For now, abort with specific error.
     await git.resetHard();
     return { success: false, error: 'User requested retry. Changes reverted.' };
   }
 
-  // 7. Generate proof
   const proofContent = generateProof({
     microtaskId: microtask.id,
     microtaskTitle: microtask.title,
-    attempt: maxAttempts,
+    attempt: finalAttempt,
     failingTestLog: failingLog,
     diff: lastDiff,
     passingTestLog: lastPassingLog,
     testResult: lastTestResult,
     hygieneReport: hygieneResult.data,
-    gatekeeperVerdict: gatekeeperResult.data,
+    gatekeeperVerdict,
     artifactPaths,
   });
 
   const proofPath = sessions.saveRunArtifact(
-    sessionId, microtask.id, maxAttempts, 'proof.md', proofContent,
+    sessionId,
+    microtask.id,
+    finalAttempt,
+    'proof.md',
+    proofContent,
   );
-  artifactPaths['proof.md'] = proofPath;
+  artifactPaths.proof = proofPath;
 
-  // 8. Atomic commit
-  console.log('  ⏳ Committing...');
-  let commitHash = '';
-  if (userAction === 'amend') {
-    commitHash = await git.commitAmend(commitMessage);
-  } else {
-    commitHash = await git.commitAll(commitMessage);
-  }
+  console.log('  Committing...');
+  const commitHash = userAction === 'amend'
+    ? await git.commitAmend(commitMessage)
+    : await git.commitAll(commitMessage);
 
-  console.log(`  ✓ Committed: ${commitHash.slice(0, 8)} — ${commitMessage}`);
+  console.log(`  Committed: ${commitHash.slice(0, 8)} - ${commitMessage}`);
 
   return {
     success: true,
     commitHash,
     proofPath,
+    gatekeeperVerdict,
   };
 }

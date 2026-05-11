@@ -17,7 +17,7 @@ export type RouterTaskName = (typeof ROUTER_TASKS)[keyof typeof ROUTER_TASKS];
 export const ROUTER_API = {
   BASE_URL: 'https://inference.do-ai.run',
   CHAT_ENDPOINT: '/v1/chat/completions',
-  MODEL: 'router:nerdpos',
+  MODEL: 'router:software-engineering',
   ROUTE_HEADER: 'x-model-router-selected-route',
   AFFINITY_HEADER: 'X-Model-Affinity',
 } as const;

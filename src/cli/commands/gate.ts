@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { loadConfig, loadConfigStrict, resolveAuthToken } from '../../config/loader.js';
+import { loadConfigStrict, resolveAuthToken } from '../../config/loader.js';
 import { RouterClient } from '../../router/client.js';
 import { GitOperations } from '../../git/operations.js';
 import { ROUTER_TASKS } from '../../types/constants.js';
@@ -30,8 +30,7 @@ export function registerGateCommand(program: Command): void {
         maxTokens: config.models.max_tokens.default,
       });
 
-      // Hygiene
-      console.log('⏳ Running hygiene audit...');
+      console.log('Running hygiene audit...');
       const hygiene = await client.invokeTask(
         ROUTER_TASKS.HYGIENE_AUDIT,
         `DIFF:\n${diff}`,
@@ -39,8 +38,7 @@ export function registerGateCommand(program: Command): void {
       );
       console.log(`  Hygiene: ${hygiene.data.verdict} (${hygiene.data.findings.length} findings)`);
 
-      // Gatekeeper
-      console.log('⏳ Running gatekeeper...');
+      console.log('Running gatekeeper...');
       const gatekeeper = await client.invokeTask(
         ROUTER_TASKS.TDD_GATEKEEPER,
         `MICROTASK_ID: ${microtaskId}\nDIFF:\n${diff}\nHYGIENE: ${hygiene.data.verdict}`,
@@ -48,11 +46,14 @@ export function registerGateCommand(program: Command): void {
       );
 
       if (gatekeeper.data.verdict === 'PASS') {
-        console.log(`✓ PASS — Suggested commit: ${gatekeeper.data.commit_message}`);
-      } else {
-        console.error('✗ FAIL');
-        for (const r of gatekeeper.data.reasons) console.error(`  - ${r}`);
-        process.exitCode = 1;
+        console.log(`PASS - Suggested commit: ${gatekeeper.data.commit_message}`);
+        return;
       }
+
+      console.error('FAIL');
+      for (const reason of gatekeeper.data.reasons ?? []) {
+        console.error(`  - ${reason}`);
+      }
+      process.exitCode = 1;
     });
 }

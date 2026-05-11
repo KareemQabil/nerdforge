@@ -1,80 +1,66 @@
-# nerdforge
+# Nerdforge
 
-Production-grade, deterministic CLI orchestration tool for a multi-agent software factory, powered by the **DigitalOcean Inference Router**.
+Nerdforge is a production-grade deterministic multi-agent software factory powered by the DigitalOcean Inference API. Built for resilience and iterative software engineering, Nerdforge acts as an interactive CLI orchestrator that integrates deeply into your local Git repositories to execute autonomous Test-Driven Development (TDD) loops.
 
 ## Features
 
-- **Schema Validation First**: All LLM outputs are rigorously validated against Zod schemas. Hallucinations are rejected.
-- **TDD Workflow**: Strictly follows a Test-Driven Development loop: verify failing test → implement patch → verify passing test.
-- **Safe Execution**: Uses 3-way merge `git apply` to patch code safely. Never force-pushes, never modifies history.
-- **Gatekeeper Verified**: All changes must pass a hygiene architecture audit and a gatekeeper validation before being committed.
-- **Tracing Proofs**: Generates structured Markdown evidence artifacts proving exactly why a change is correct.
+- **Interactive Orchestrator**: A CLI dashboard (`@clack/prompts`) for seamless task management and session tracking.
+- **Autonomous Architecture Blueprints**: Define a high-level goal, and the AI agent automatically analyzes your repository via structural maps to produce structured multi-module architecture blueprints broken down into executable microtasks.
+- **Deterministic Work Loops**:
+  - **Unit Test Implementation**: Generates missing unit tests or modifies existing ones to capture failing requirements.
+  - **Targeted Patching**: Generates unified diffs and structured patches applied directly via `git apply --3way`.
+  - **Hygiene Audits**: Audits the generated diff for structural violations or linting errors.
+  - **Gatekeeper Verification**: The final LLM reviewer validates the code changes against the tests and hygiene checks before approving the implementation.
+- **Atomic Git Operations**: Every successful microtask is committed automatically with context-aware commit messages, guaranteeing safe rollbacks.
+- **Resilient Parsing**: Built-in fallback strategies for strict Zod schema validation using `z.output` defaults to combat LLM hallucinations during execution.
 
-## Setup
+## Getting Started
 
-1. **Build and Install globally (or run via npx)**
+### Installation
+
+Nerdforge uses a standard Node.js/TypeScript configuration. 
 ```bash
 npm install
 npm run build
 npm link
 ```
 
-2. **Configure your DigitalOcean Model Access Key**
-Get a Model Access Key from the DigitalOcean AI dashboard and export it:
-```bash
-export DO_MODEL_ACCESS_KEY="your-token"
+### Configuration
+
+You can configure Nerdforge by creating a `.nerdforge/config.yaml` file in your repository, or using environment variables. 
+The system defaults to using the DigitalOcean Inference Router for LLM calls.
+
+```env
+DO_MODEL_ACCESS_KEY=your_access_token
 ```
 
-3. **Initialize a Project**
-Navigate to the repository you want to work on:
+### Usage
+
+Simply type `nerdforge` in your terminal to launch the interactive TDD dashboard.
+
 ```bash
-nerdforge init
+nerdforge
 ```
 
-## Commands Workflow
-
-1. **Check Environment**
+Or you can use direct CLI commands:
 ```bash
-nerdforge doctor
-```
-
-2. **Generate Repository Map**
-```bash
+# Generate a repository map for the AI
 nerdforge repomap
+
+# Generate an architecture blueprint
+nerdforge blueprint --goal "Build a scalable microservice architecture"
+
+# Manually audit uncommitted changes using the AI Gatekeeper
+nerdforge gate <microtask-id>
 ```
 
-3. **Generate Architecture Blueprint**
-```bash
-nerdforge blueprint --goal "Implement the payment gateway module"
-```
+## How It Works
 
-4. **Audit Symbols (Anti-Hallucination)**
-```bash
-nerdforge audit:symbols
-```
+Nerdforge operates on a rigorous cycle:
+1. **Blueprint Generation**: Breaks user goals into isolated microtasks with acceptance criteria and expected file scopes.
+2. **Implementation**: An agent writes failing tests, generates the target feature code, and asserts the tests pass.
+3. **Audit**: Code passes through a hygiene and deterministic gatekeeper check to prevent model regressions and hallucinations.
+4. **Commit**: Clean changes are merged into your worktree.
 
-5. **Normalize Microtasks**
-```bash
-nerdforge microtasks
-```
-
-6. **Execute TDD Work Loop**
-```bash
-nerdforge work MT-001
-```
-
-7. **Check Status**
-```bash
-nerdforge status
-```
-
-## Architecture Diagram
-
-- `nerdforge blueprint` calls the `enterprise-pos-architecture-blueprint` task.
-- `nerdforge audit:symbols` calls the `repository-symbol-existence-audit` task.
-- `nerdforge work` orchestrates tests and the `unit-test-targeted-implementation` task.
-- The pipeline concludes with `maintainability-architecture-hygiene-audit` and `tdd-proof-gatekeeper`.
-
-## State & Artifacts
-
-All operational state and session data is stored locally in `.nerdforge/` (which is gitignored). You can inspect `.nerdforge/sessions/` to see raw prompts, responses, and patch files for debugging agent routing issues.
+## License
+MIT

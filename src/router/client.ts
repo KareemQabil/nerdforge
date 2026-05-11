@@ -33,16 +33,16 @@ export class RouterClient {
    * Retries on schema validation failure (LLM may produce bad output).
    * Aborts on misrouted requests (wrong task selected by router).
    */
-  async invokeTask<T>(
+  async invokeTask<TSchema extends z.ZodTypeAny>(
     taskName: RouterTaskName,
     content: string,
-    schema: z.ZodType<T>,
+    schema: TSchema,
     options?: {
       schemaId?: string;
       extraConstraints?: string[];
       sessionId?: string;
     },
-  ): Promise<InvokeResult<T>> {
+  ): Promise<InvokeResult<z.output<TSchema>>> {
     const constraints = [
       ...TASK_CONSTRAINTS[taskName],
       ...(options?.extraConstraints ?? []),

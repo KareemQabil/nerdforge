@@ -13,7 +13,10 @@ export class GitOperations {
 
   async isCleanWorktree(): Promise<boolean> {
     const status = await this.git.status();
-    return status.isClean();
+    const hasTrackedChanges = status.files.some(
+      (file) => file.working_dir !== '?' || file.index !== '?',
+    );
+    return !hasTrackedChanges;
   }
 
   async getCurrentBranch(): Promise<string> {

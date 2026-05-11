@@ -29,10 +29,10 @@ export function buildPrompt(
 /** Task-specific constraint sets to prevent hallucination and scope creep */
 export const TASK_CONSTRAINTS: Record<RouterTaskName, string[]> = {
   [ROUTER_TASKS.ARCHITECTURE_BLUEPRINT]: [
-    'Output MUST be valid JSON matching the blueprint schema',
+    'Output MUST be valid JSON',
     'NO implementation code — architecture specification only',
-    'All entity names must be real, verifiable identifiers',
-    'Include microtasks with concrete file paths',
+    'CRITICAL: The root JSON object MUST contain exactly these keys: "system_name" (string), "domain_modules" (array of objects with name, description, entities), "database" (object with entities array), "invariants" (array of strings), and "microtasks" (array).',
+    'CRITICAL: each microtask MUST contain exactly these keys: id, title, description, expected_files (array of strings), tests (MUST be an object with "new" and "modified" arrays of strings. Do NOT make "tests" an array!), acceptance_criteria (array of strings), tracing_proof_requirements (array of strings).',
   ],
   [ROUTER_TASKS.TDD_GATEKEEPER]: [
     'Output MUST be valid JSON matching the gatekeeper schema',
@@ -42,6 +42,7 @@ export const TASK_CONSTRAINTS: Record<RouterTaskName, string[]> = {
   ],
   [ROUTER_TASKS.UNIT_TEST_IMPLEMENTATION]: [
     'Output MUST be valid JSON with a "diff" field containing unified diff',
+    'Do NOT use "*** Begin Patch" format. Use unified diff with ---/+++ headers.',
     'Minimal change only — fix the failing test, nothing else',
     'No refactoring, no new features, no cross-module changes',
     'All symbols referenced must exist in the provided file snippets',
@@ -49,12 +50,14 @@ export const TASK_CONSTRAINTS: Record<RouterTaskName, string[]> = {
   [ROUTER_TASKS.SYMBOL_AUDIT]: [
     'Output MUST be valid JSON matching the symbol audit schema',
     'verdict must be exactly PASS or FAIL',
+    'CRITICAL: ALWAYS include a "mismatches" array. Use [] when there are no mismatches.',
     'Check ONLY symbols that exist in the provided blueprint and repo map',
     'Do not invent files or symbols not in the input',
   ],
   [ROUTER_TASKS.HYGIENE_AUDIT]: [
     'Output MUST be valid JSON matching the hygiene schema',
     'verdict must be exactly PASS, WARN, or FAIL',
+    'Each finding MUST include severity (LOW, MED, or HIGH), rule_id, file, and description',
     'Findings must reference real files from the provided diff',
     'No speculative recommendations about unseen code',
   ],

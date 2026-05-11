@@ -3,3 +3,4 @@ dist/
 .nerdforge/
 *.log
 .env
+flobby-bird-game/
