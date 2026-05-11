@@ -1,0 +1,60 @@
+{
+  "name": "nerdforge",
+  "version": "0.1.0",
+  "description": "Deterministic CLI orchestrator for the DigitalOcean Inference Router 'nerdpos' — drives an Autonomous Multi-Agent Software Factory workflow with strict TDD loops, schema-validated agent outputs, tracing proofs, and atomic baby-step commits.",
+  "type": "module",
+  "bin": {
+    "nerdforge": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "nerdforge.yaml.template"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "yarn build && yarn test"
+  },
+  "keywords": [
+    "cli",
+    "tdd",
+    "agents",
+    "orchestration",
+    "digitalocean",
+    "inference",
+    "nerdpos",
+    "multi-agent",
+    "code-generation"
+  ],
+  "author": "nerdforge contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "execa": "^9.5.1",
+    "fast-glob": "^3.3.2",
+    "ora": "^8.1.1",
+    "simple-git": "^3.27.0",
+    "undici": "^6.21.0",
+    "yaml": "^2.6.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

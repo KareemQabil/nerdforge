@@ -1,0 +1,68 @@
+{
+  "schema_version": "nerdforge.blueprint.v1",
+  "system_name": "discount-engine",
+  "goal": "Add configurable discount rules per store, evaluated at checkout, expressed as JSON rules with no hard-coded thresholds.",
+  "domain_modules": [
+    "catalog",
+    "checkout",
+    "config"
+  ],
+  "database": {
+    "entities": [
+      {
+        "name": "Store",
+        "fields": [
+          { "name": "id", "type": "uuid", "nullable": false },
+          { "name": "name", "type": "string", "nullable": false }
+        ]
+      },
+      {
+        "name": "DiscountRule",
+        "fields": [
+          { "name": "id", "type": "uuid" },
+          { "name": "store_id", "type": "uuid" },
+          { "name": "expression_json", "type": "json" },
+          { "name": "active", "type": "boolean" }
+        ]
+      }
+    ],
+    "relationships": [
+      { "from": "Store", "to": "DiscountRule", "kind": "one-to-many" }
+    ]
+  },
+  "invariants": [
+    "all thresholds live in DiscountRule.expression_json — no hard-coded numbers in code",
+    "zero-trust UI: rule evaluation only on server",
+    "rules are loaded at request time via DiscountRuleRepository"
+  ],
+  "microtasks": [
+    {
+      "id": "MT-001",
+      "title": "DiscountRule entity + repository",
+      "description": "Introduce DiscountRule domain entity and an in-memory repository with load_by_store(store_id).",
+      "expected_files": [
+        "src/discount/types.ts",
+        "src/discount/repository.ts",
+        "test/discount/repository.test.ts"
+      ],
+      "tests": {
+        "new": ["test/discount/repository.test.ts"],
+        "modified": [],
+        "commands": ["yarn test"]
+      },
+      "acceptance_criteria": [
+        "Repository.load_by_store returns only active rules",
+        "Unknown store id returns empty list (not error)"
+      ],
+      "invariants": [
+        "no hard-coded thresholds",
+        "rule evaluation server-side only"
+      ],
+      "tracing_proof_requirements": [
+        "failing test exists and references DiscountRuleRepository.load_by_store",
+        "passing test output shows green",
+        "diff scoped to expected_files"
+      ]
+    }
+  ]
+}
