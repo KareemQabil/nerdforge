@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict } from '../../config/loader.js';
 import { SessionManager } from '../../storage/session-manager.js';
 import { StateManager } from '../../storage/state-manager.js';
 import type { Blueprint, Microtask } from '../../types/schemas.js';
@@ -10,7 +10,7 @@ export function registerMicrotasksCommand(program: Command): void {
     .description('Normalize blueprint into microtasks.json')
     .action(async () => {
       const cwd = process.cwd();
-      loadConfig(cwd); // validate config exists
+      loadConfigStrict(cwd); // validate config exists
 
       const stateManager = new StateManager(cwd);
       const state = stateManager.load();

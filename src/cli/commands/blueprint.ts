@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, resolveAuthToken } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict, resolveAuthToken } from '../../config/loader.js';
 import { RouterClient } from '../../router/client.js';
 import { SessionManager } from '../../storage/session-manager.js';
 import { StateManager } from '../../storage/state-manager.js';
@@ -17,7 +17,7 @@ export function registerBlueprintCommand(program: Command): void {
     .option('--context <text>', 'Additional context')
     .action(async (opts: { goal: string; context?: string }) => {
       const cwd = process.cwd();
-      const config = loadConfig(cwd);
+      const config = loadConfigStrict(cwd);
       const token = resolveAuthToken(config);
 
       // Load repo map

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict } from '../../config/loader.js';
 import { StateManager } from '../../storage/state-manager.js';
 import { GitOperations } from '../../git/operations.js';
 
@@ -11,7 +11,7 @@ export function registerStatusCommand(program: Command): void {
       const cwd = process.cwd();
 
       try {
-        loadConfig(cwd);
+        loadConfigStrict(cwd);
       } catch {
         console.error('✗ Not a nerdforge project. Run "nerdforge init" first.');
         process.exitCode = 1;

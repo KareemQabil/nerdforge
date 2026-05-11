@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict } from '../../config/loader.js';
 import { generateRepoMap } from '../../repomap/generator.js';
 import { ARTIFACTS_DIR } from '../../types/constants.js';
 
@@ -11,7 +11,7 @@ export function registerRepomapCommand(program: Command): void {
     .description('Generate repository map')
     .action(async () => {
       const cwd = process.cwd();
-      const config = loadConfig(cwd);
+      const config = loadConfigStrict(cwd);
       const repoMap = await generateRepoMap(cwd, config);
 
       const outDir = path.join(cwd, ARTIFACTS_DIR);

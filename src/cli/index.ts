@@ -10,6 +10,7 @@ import { registerMicrotasksCommand } from './commands/microtasks.js';
 import { registerWorkCommand } from './commands/work.js';
 import { registerGateCommand } from './commands/gate.js';
 import { registerStatusCommand } from './commands/status.js';
+import { registerInteractiveCommand } from './commands/interactive.js';
 
 const program = new Command();
 
@@ -27,5 +28,8 @@ registerMicrotasksCommand(program);
 registerWorkCommand(program);
 registerGateCommand(program);
 registerStatusCommand(program);
+
+// Register the default interactive command
+registerInteractiveCommand(program);
 
 program.parse();

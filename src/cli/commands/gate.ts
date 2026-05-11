@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { loadConfig, resolveAuthToken } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict, resolveAuthToken } from '../../config/loader.js';
 import { RouterClient } from '../../router/client.js';
 import { GitOperations } from '../../git/operations.js';
 import { ROUTER_TASKS } from '../../types/constants.js';
@@ -11,7 +11,7 @@ export function registerGateCommand(program: Command): void {
     .description('Run hygiene + gatekeeper on current changes')
     .action(async (microtaskId: string) => {
       const cwd = process.cwd();
-      const config = loadConfig(cwd);
+      const config = loadConfigStrict(cwd);
       const token = resolveAuthToken(config);
       const git = new GitOperations(cwd);
 

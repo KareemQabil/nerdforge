@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import { execSync } from 'node:child_process';
-import { loadConfig, resolveAuthToken } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict, resolveAuthToken } from '../../config/loader.js';
 import { AUTH_ENV_VARS } from '../../types/constants.js';
 
 export function registerDoctorCommand(program: Command): void {
@@ -13,7 +13,7 @@ export function registerDoctorCommand(program: Command): void {
 
       // 1. Config
       try {
-        const config = loadConfig(cwd);
+        const config = loadConfigStrict(cwd);
         console.log('✓ nerdforge.yaml is valid');
 
         // 2. Auth token

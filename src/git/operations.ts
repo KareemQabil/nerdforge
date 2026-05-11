@@ -48,6 +48,30 @@ export class GitOperations {
     return result.commit;
   }
 
+  /** Amend the previous commit */
+  async commitAmend(message?: string): Promise<string> {
+    await this.git.add('.');
+    const args = ['--amend'];
+    if (message) {
+      args.push('-m', message);
+    } else {
+      args.push('--no-edit');
+    }
+    const result = await this.git.commit(args);
+    return result.commit;
+  }
+
+  /** Stash current changes and checkout a branch */
+  async stashAndCheckout(branchName: string): Promise<void> {
+    await this.git.stash();
+    await this.git.checkout(branchName);
+  }
+
+  /** Reset hard to HEAD */
+  async resetHard(): Promise<void> {
+    await this.git.reset(['--hard', 'HEAD']);
+  }
+
   async getLastCommitHash(): Promise<string> {
     const log = await this.git.log({ maxCount: 1 });
     return log.latest?.hash ?? '';

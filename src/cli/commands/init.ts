@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CONFIG_TEMPLATE } from '../../config/template.js';
-import { loadConfig, writeResolvedConfig } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict, writeResolvedConfig } from '../../config/loader.js';
 import { ARTIFACTS_DIR } from '../../types/constants.js';
 
 export function registerInitCommand(program: Command): void {
@@ -35,7 +35,7 @@ export function registerInitCommand(program: Command): void {
 
       // Validate and write resolved config
       try {
-        const config = loadConfig(cwd);
+        const config = loadConfigStrict(cwd);
         writeResolvedConfig(config, cwd);
         console.log('✓ Wrote config.resolved.json');
       } catch (err) {

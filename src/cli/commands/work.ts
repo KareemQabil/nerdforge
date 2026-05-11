@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { loadConfig, resolveAuthToken } from '../../config/loader.js';
+import { loadConfig, loadConfigStrict, resolveAuthToken } from '../../config/loader.js';
 import { RouterClient } from '../../router/client.js';
 import { SessionManager } from '../../storage/session-manager.js';
 import { StateManager } from '../../storage/state-manager.js';
@@ -14,7 +14,7 @@ export function registerWorkCommand(program: Command): void {
     .option('--dry-run', 'Show patch without applying')
     .action(async (microtaskId: string, opts: { attempt: string; dryRun?: boolean }) => {
       const cwd = process.cwd();
-      const config = loadConfig(cwd);
+      const config = loadConfigStrict(cwd);
       const token = resolveAuthToken(config);
 
       const stateManager = new StateManager(cwd);

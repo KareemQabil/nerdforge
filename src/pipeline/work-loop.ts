@@ -20,6 +20,7 @@ export interface WorkLoopOptions {
   microtask: Microtask;
   attempt?: number;
   dryRun?: boolean;
+  onGatekeeperApproved?: (diff: string, commitMessage: string) => Promise<'commit' | 'amend' | 'retry' | 'abort'>;
 }
 
 export interface WorkLoopResult {
@@ -192,6 +193,24 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
     return { success: false, error: 'Gatekeeper rejected changes' };
   }
 
+  let userAction: 'commit' | 'amend' | 'retry' | 'abort' = 'commit';
+  const commitMessage = gatekeeperResult.data.commit_message || `feat(${microtask.id}): ${microtask.title}`;
+
+  if (opts.onGatekeeperApproved) {
+    userAction = await opts.onGatekeeperApproved(lastDiff, commitMessage);
+  }
+
+  if (userAction === 'abort') {
+    return { success: false, error: 'User aborted commit.' };
+  }
+  
+  if (userAction === 'retry') {
+    // Advanced: Would require wrapping the entire loop to retry. 
+    // For now, abort with specific error.
+    await git.resetHard();
+    return { success: false, error: 'User requested retry. Changes reverted.' };
+  }
+
   // 7. Generate proof
   const proofContent = generateProof({
     microtaskId: microtask.id,
@@ -212,9 +231,13 @@ export async function executeWorkLoop(opts: WorkLoopOptions): Promise<WorkLoopRe
   artifactPaths['proof.md'] = proofPath;
 
   // 8. Atomic commit
-  const commitMessage = gatekeeperResult.data.commit_message || `feat(${microtask.id}): ${microtask.title}`;
   console.log('  ⏳ Committing...');
-  const commitHash = await git.commitAll(commitMessage);
+  let commitHash = '';
+  if (userAction === 'amend') {
+    commitHash = await git.commitAmend(commitMessage);
+  } else {
+    commitHash = await git.commitAll(commitMessage);
+  }
 
   console.log(`  ✓ Committed: ${commitHash.slice(0, 8)} — ${commitMessage}`);
 

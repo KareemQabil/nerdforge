@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
+import os from 'node:os';
 import { NerdforgeConfigSchema, type NerdforgeConfig } from '../types/config.js';
 import { AUTH_ENV_VARS, ARTIFACTS_DIR } from '../types/constants.js';
 
@@ -8,11 +9,17 @@ import { AUTH_ENV_VARS, ARTIFACTS_DIR } from '../types/constants.js';
  * Load and validate nerdforge.yaml from the given directory.
  * Returns validated config with defaults applied.
  */
-export function loadConfig(cwd: string): NerdforgeConfig {
-  const configPath = path.join(cwd, 'nerdforge.yaml');
+export function loadConfig(cwd: string): NerdforgeConfig | null {
+  const localConfigPath = path.join(cwd, 'nerdforge.yaml');
+  const globalConfigPath = path.join(os.homedir(), '.nerdforge', 'config.yaml');
 
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Config not found: ${configPath}\nRun 'nerdforge init' to create one.`);
+  let configPath = localConfigPath;
+  if (!fs.existsSync(localConfigPath)) {
+    if (fs.existsSync(globalConfigPath)) {
+      configPath = globalConfigPath;
+    } else {
+      return null;
+    }
   }
 
   const raw = fs.readFileSync(configPath, 'utf-8');
@@ -23,10 +30,21 @@ export function loadConfig(cwd: string): NerdforgeConfig {
     const issues = result.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
       .join('\n');
-    throw new Error(`Invalid nerdforge.yaml:\n${issues}`);
+    throw new Error(`Invalid configuration (${configPath}):\n${issues}`);
   }
 
   return result.data;
+}
+
+/**
+ * Load config, but throw if missing. Useful for non-interactive commands.
+ */
+export function loadConfigStrict(cwd: string): NerdforgeConfig {
+  const config = loadConfig(cwd);
+  if (!config) {
+    throw new Error(`Config not found.\nRun 'nerdforge init' or use interactive mode to create one.`);
+  }
+  return config;
 }
 
 /**
@@ -34,13 +52,25 @@ export function loadConfig(cwd: string): NerdforgeConfig {
  * Checks multiple env var names in precedence order.
  */
 export function resolveAuthToken(config: NerdforgeConfig): string {
-  // First try the config-specified env var
+  // First try the config-specified env var in config.env
   const configEnv = config.auth.do_api_token_env;
+  if (config.env[configEnv]) {
+    return config.env[configEnv];
+  }
+
+  // Then try process.env for the config-specified env var
   if (process.env[configEnv]) {
     return process.env[configEnv]!;
   }
 
-  // Then try known env var names
+  // Then try known env var names in config.env
+  for (const envVar of AUTH_ENV_VARS) {
+    if (config.env[envVar]) {
+      return config.env[envVar];
+    }
+  }
+
+  // Then try known env var names in process.env
   for (const envVar of AUTH_ENV_VARS) {
     if (process.env[envVar]) {
       return process.env[envVar]!;

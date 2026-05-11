@@ -52,6 +52,7 @@ export const NerdforgeConfigSchema = z.object({
   models: ModelsConfigSchema.default({}),
   workflow: WorkflowConfigSchema.default({}),
   repo_map: RepoMapConfigSchema.default({}),
+  env: z.record(z.string(), z.string()).default({}),
 });
 
 export type NerdforgeConfig = z.infer<typeof NerdforgeConfigSchema>;
